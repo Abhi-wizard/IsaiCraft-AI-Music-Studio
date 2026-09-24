@@ -1,84 +1,111 @@
 # 🎙️ IsaiCraft Audio Processing & DSP Pipeline
 
-IsaiCraft replaces manual digital audio workstation (DAW) tasks with an automated, programmatic audio engineering pipeline.
+IsaiCraft replaces manual digital audio workstation (DAW) editing with an automated, programmatic audio engineering and neural synthesis pipeline executed in Google Colab.
 
 ```
-Raw Vocal Performance (.wav)
+User Vocal Performance (.wav)
           │
           ▼
-┌────────────────────────────────────────┐
-│ 1. Acoustic Cleansing                  │
-│    • noisereduce (Non-Stationary Noise)│
-│    • Strip hardware static & ambient rm│
-└────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│ 1. Audio Upload & Librosa Loading                      │
+│    • Temporary WAV file handling                       │
+│    • Ingestion via librosa.load(sr=sample_rate, mono)  │
+└────────────────────────────────────────────────────────┘
           │
           ▼
-┌────────────────────────────────────────┐
-│ 2. PyWorld Fundamental Frequency (F0)  │
-│    • DIO (Distributed Info One-Step)   │
-│    • StoneMask refinement              │
-│    • CheapTrick (Spectral Envelope)    │
-│    • D4C (Aperiodicity Extraction)     │
-└────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│ 2. Acoustic Cleansing (noisereduce)                    │
+│    • Non-stationary spectral gating                    │
+│    • prop_decrease = 0.85                              │
+│    • Strips ambient room reflections and mic hiss      │
+└────────────────────────────────────────────────────────┘
           │
           ▼
-┌────────────────────────────────────────┐
-│ 3. Humanized Soft-Pitch Correction     │
-│    • SciPy Median Filter smoothing     │
-│    • Nearest chromatic MIDI note target│
-│    • Fractional retune (0.55 strength) │
-│    • PyWorld Synthesizer resynthesis   │
-└────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│ 3. PyWorld Pitch Extraction & Analysis                 │
+│    • Fundamental Frequency (F0): DIO algorithm         │
+│    • F0 Refinement: StoneMask                          │
+│    • Spectral Envelope: CheapTrick                     │
+│    • Aperiodicity Ratio: D4C                           │
+└────────────────────────────────────────────────────────┘
           │
           ▼
-┌────────────────────────────────────────┐
-│ 4. Studio Vocal FX Chain (Pedalboard)  │
-│    • HighpassFilter (100Hz)            │
-│    • PeakFilter (300Hz boxiness carve) │
-│    • HighShelfFilter (7.5kHz sheen)    │
-│    • Compressor (4:1, -22dB threshold) │
-│    • Studio Reverb (0.25 room size)    │
-└────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│ 4. Humanized Soft-Pitch Correction (55% Retune)        │
+│    • Glitch smoothing: scipy.signal.medfilt(kernel=5)  │
+│    • MIDI semitone mapping: 69 + 12*log2(f/440.0)      │
+│    • Target frequency calculation                      │
+│    • Fractional retune: tuned = f + (target - f)*0.55  │
+│    • Resynthesis: pyworld.synthesize                   │
+└────────────────────────────────────────────────────────┘
           │
-          ├─────────────────────────────────────────┐
-          │                                         │
-          ▼ (Mastered Vocal Stem)                   ▼ (Conditioned Mood Prompt)
-┌────────────────────────────────────────┐  ┌────────────────────────────────────────┐
-│ Target Peak Normalization: 0.90        │  │ Meta MusicGen Small Backing Track      │
-└────────────────────────────────────────┘  │ Instrumental EQ: HPF 40Hz, Notch 2.5kHz│
-          │                                 │ Target Peak Normalization: 0.35        │
-          │                                 └────────────────────────────────────────┘
-          │                                                     │
-          └────────────────────┬────────────────────────────────┘
-                               ▼
-┌────────────────────────────────────────────────────────────┐
-│ 5. Dynamic Mixbus Summation & Soft-Limiting                │
-│    • Array Alignment & Length Matching                     │
-│    • Summation: norm_beat + norm_vocal                     │
-│    • Analog Saturation / Soft-Limiting via np.tanh(sum * 1.1)│
-└────────────────────────────────────────────────────────────┘
-                               │
-                               ▼
-┌────────────────────────────────────────────────────────────┐
-│ 6. Multi-Stem Base64 Encoding & Return                     │
-│    • Master Mix Track                                      │
-│    • Vocal Stem                                            │
-│    • Instrumental Beat Stem                                │
-└────────────────────────────────────────────────────────────┘
+          ▼
+┌────────────────────────────────────────────────────────┐
+│ 5. Studio Vocal FX Chain (Spotify Pedalboard)          │
+│    • HighpassFilter(100Hz)                             │
+│    • PeakFilter(300Hz, gain_db=-3.0, q=1.0)            │
+│    • HighShelfFilter(7500Hz, gain_db=4.5)              │
+│    • Compressor(-22dB, ratio=4.0, 3ms att, 100ms rel)  │
+│    • Reverb(room_size=0.25, damping=0.5, wet=0.1)      │
+│    • Gain(gain_db=6.0)                                 │
+└────────────────────────────────────────────────────────┘
+          │
+          ├───────────────────────────────────────────────┐
+          │ (Processed Vocal Stem)                        │ (Conditioned Mood Prompt)
+          ▼                                               ▼
+┌────────────────────────────────────┐  ┌────────────────────────────────────┐
+│ Peak Normalization: Vocal = 0.90   │  │ Meta MusicGen Small Model          │
+└────────────────────────────────────┘  │ • max_new_tokens = 1500            │
+          │                             │ • Sampling Rate from model config  │
+          │                             │ • Instrumental EQ (Pedalboard):    │
+          │                             │   - PeakFilter(2500Hz, -6dB, q=1.0)│
+          │                             │   - HighpassFilter(40Hz)           │
+          │                             │ • Peak Normalization: Music = 0.35 │
+          │                             └────────────────────────────────────┘
+          │                                               │
+          └───────────────────────┬───────────────────────┘
+                                  ▼
+┌────────────────────────────────────────────────────────┐
+│ 6. Mix Summation & Dynamic Alignment                   │
+│    • Array length matching via zero-padding            │
+│    • mixed_raw = music_norm + vocal_norm               │
+└────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────┐
+│ 7. Mastering Compression & Soft-Limiting               │
+│    • Master Pedalboard: Compressor(-12dB, ratio=2.5)   │
+│    • Post Gain: +1.5dB                                 │
+│    • Final Analog Soft-Saturation: np.tanh(...)        │
+└────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────┐
+│ 8. Multi-Stem Base64 WAV Export                        │
+│    • master_track (Final master mix)                   │
+│    • vocal_track (Pitch-corrected, processed vocal)    │
+│    • music_track (Instrumental backing beat)           │
+└────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🎚️ Mathematical Details of Humanized Pitch Correction
+## 🎚️ Mathematical Details of Humanized Soft-Pitch Correction
 
-Traditional autotuning models execute absolute quantization:
-$$F_{\text{target}} = 440 \times 2^{\frac{\text{round}(\text{MIDI}) - 69}{12}}$$
+Standard auto-tuning models execute rigid mathematical quantization to the nearest 12-TET semitone:
 
-When a singer's pitch fluctuates, rigid autotune causes the robotic "hard-snap" artifact. 
+$$\text{midi\_note} = 69 + 12 \log_2\left(\frac{f}{440}\right)$$
 
-IsaiCraft implements **Fractional Harmonic Correction**:
-$$F_{\text{corrected}} = F_{\text{current}} + \alpha \times \left(F_{\text{target}} - F_{\text{current}}\right)$$
+$$\text{snapped\_midi} = \text{round}(\text{midi\_note})$$
 
-Where $\alpha = 0.55$ (the `retune_strength`).
+$$f_{\text{target}} = 440 \times 2^{\frac{\text{snapped\_midi} - 69}{12}}$$
 
-This formula gently draws off-key frequencies 55% toward the nearest harmonic pitch center, correcting off-key notes while preserving the singer's natural micro-intonation, vocal timbre, and organic vibrato.
+When vocalists exhibit natural intonation variations, hard quantization creates robotic "stair-stepping" artifacts.
+
+IsaiCraft introduces **Fractional Harmonic Retuning**:
+
+$$f_{\text{tuned}} = f + \left(f_{\text{target}} - f\right) \times \text{retune\_strength}$$
+
+Where $\text{retune\_strength} = 0.55$.
+
+This formula gently draws off-key frequencies 55% toward harmonic resonance, eliminating off-pitch errors while preserving the natural vibrato, timbre, and organic human expression.
