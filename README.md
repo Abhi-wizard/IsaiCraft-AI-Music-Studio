@@ -10,7 +10,7 @@
 [![Firebase](https://img.shields.io/badge/Firebase-Auth-FFCA28.svg)](https://firebase.google.com/)
 [![Google Colab](https://img.shields.io/badge/Colab-NVIDIA%20T4%20GPU-F9AB00.svg)](https://colab.research.google.com/)
 
-**IsaiCraft** is an interview-ready distributed AI audio-processing project designed as a three-tier ecosystem to assist amateur singers, independent lyricists, and content creators in producing music with their own vocal performances.
+**IsaiCraft** is an AI audio-processing project designed as a three-tier ecosystem to assist amateur singers, independent lyricists, and content creators in producing music with their own vocal performances.
 
 Rather than generating passive, flattened songs from text prompts alone, IsaiCraft combines **raw human vocals** with **AI-generated instrumental music**, provides **multilingual vocal coaching**, applies **humanized soft-pitch correction**, and programmatically executes **DSP mixing and mastering**.
 
